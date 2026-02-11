@@ -24,16 +24,14 @@ app.post('/generar-pdf', async (req, res) => {
   let browser;
 
   try {
-    // 🔹 Validar estructura
-    if (!req.body.return || !req.body.return.args) {
-      return res.status(400).json({
-        error: 'Formato inválido. Se esperaba return.args'
-      });
-    }
+    // 🔹 Extraer datos desde Apphive o pruebas manuales
+const data = req.body.s || (req.body.return && req.body.return.args);
 
-    // 🔹 Extraer datos desde Apphive
-    const data = req.body.return.args;
-
+if (!data) {
+  return res.status(400).json({
+    error: 'Formato inválido. Se esperaba body.s (Apphive) o return.args'
+  });
+}
     // 🔹 Leer plantilla
     const templatePath = path.join(__dirname, 'views', 'ticket.hbs');
     const templateSource = fs.readFileSync(templatePath, 'utf8');
