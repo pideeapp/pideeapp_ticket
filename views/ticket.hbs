@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        width: 80mm;
+        font-size: 12px;
+    }
+
+    h1 {
+        text-align: center;
+        font-size: 14px;
+        margin: 0;
+    }
+
+    .order-id {
+        text-align: center;
+        font-weight: bold;
+        margin: 4px 0;
+    }
+
+    .date {
+        text-align: right;
+        font-size: 11px;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    th {
+        text-align: left;
+        font-size: 11px;
+    }
+
+    td {
+        font-size: 11px;
+        padding: 2px 0;
+    }
+
+    .right {
+        text-align: right;
+    }
+
+    .dotted {
+        border-bottom: 1px dotted #000;
+        margin: 4px 0;
+    }
+
+    .total {
+        font-weight: bold;
+        font-size: 14px;
+    }
+</style>
+</head>
+
+<body>
+
+<h1>{{company.name}}</h1>
+
+<div class="order-id">{{order.id}}</div>
+<div class="date">{{order.date}}</div>
+
+<div class="dotted"></div>
+
+<table>
+    <thead>
+        <tr>
+            <th>Producto</th>
+            <th class="right">Cant</th>
+            <th class="right">Total</th>
+        </tr>
+    </thead>
+    <tbody>
+
+    {{#each products}}
+        <tr>
+            <td>{{this.name}}</td>
+            <td class="right">x{{this.quantity}}</td>
+            <td class="right">{{this.total}}</td>
+        </tr>
+
+        {{#if this.adicionales}}
+        <tr>
+            <td colspan="3"><strong>Adicionales:</strong></td>
+        </tr>
+        <tr>
+            <td colspan="3">{{this.adicionales}}</td>
+        </tr>
+        {{/if}}
+
+        <tr>
+            <td colspan="3"><div class="dotted"></div></td>
+        </tr>
+    {{/each}}
+
+    </tbody>
+</table>
+
+{{#if order.comments}}
+<p><strong>Comentarios:</strong> {{order.comments}}</p>
+{{/if}}
+
+<div class="dotted"></div>
+
+<table>
+    <tr>
+        <td colspan="2" class="right"><strong>Subtotal:</strong></td>
+        <td class="right">{{subtotal}}</td>
+    </tr>
+    <tr>
+        <td colspan="2" class="right"><
