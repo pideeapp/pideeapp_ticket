@@ -1,115 +1,131 @@
 <!DOCTYPE html>
-<html lang="es">
+<html>
 <head>
-<meta charset="UTF-8">
+<meta charset="utf-8" />
 <style>
-    body {
-        font-family: Arial, sans-serif;
-        width: 80mm;
-        font-size: 12px;
-    }
+  body {
+    width: 72mm;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 12px;
+    margin: 0;
+    padding: 0;
+  }
 
-    h1 {
-        text-align: center;
-        font-size: 14px;
-        margin: 0;
-    }
+  .center { text-align: center; }
+  .bold { font-weight: bold; }
 
-    .order-id {
-        text-align: center;
-        font-weight: bold;
-        margin: 4px 0;
-    }
+  .title {
+    font-size: 18px;
+    font-weight: bold;
+  }
 
-    .date {
-        text-align: right;
-        font-size: 11px;
-    }
+  .order {
+    font-size: 16px;
+    margin: 4px 0;
+  }
 
-    table {
-        width: 100%;
-        border-collapse: collapse;
-    }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
 
-    th {
-        text-align: left;
-        font-size: 11px;
-    }
+  th, td {
+    padding: 2px 0;
+  }
 
-    td {
-        font-size: 11px;
-        padding: 2px 0;
-    }
+  th {
+    text-align: left;
+    border-bottom: 1px dashed #000;
+  }
 
-    .right {
-        text-align: right;
-    }
+  .right { text-align: right; }
 
-    .dotted {
-        border-bottom: 1px dotted #000;
-        margin: 4px 0;
-    }
+  .line {
+    border-top: 1px dashed #000;
+    margin: 6px 0;
+  }
 
-    .total {
-        font-weight: bold;
-        font-size: 14px;
-    }
+  .totals td {
+    padding: 2px 0;
+  }
+
+  .total-final {
+    font-size: 16px;
+    font-weight: bold;
+  }
+
+  .adicional {
+    font-size: 11px;
+    padding-left: 8px;
+  }
+
+  .comment {
+    margin-top: 8px;
+    font-size: 11px;
+  }
 </style>
 </head>
-
 <body>
 
-<h1>{{company.name}}</h1>
+<div class="center title">{{company.name}}</div>
 
-<div class="order-id">{{order.id}}</div>
-<div class="date">{{order.date}}</div>
+<div class="center order bold">{{order.id}}</div>
+<div class="center">{{order.date}}</div>
 
-<div class="dotted"></div>
+<div class="line"></div>
 
 <table>
-    <thead>
-        <tr>
-            <th>Producto</th>
-            <th class="right">Cant</th>
-            <th class="right">Total</th>
-        </tr>
-    </thead>
-    <tbody>
-
+  <thead>
+    <tr>
+      <th>Producto</th>
+      <th class="right">Cant</th>
+      <th class="right">Total</th>
+    </tr>
+  </thead>
+  <tbody>
     {{#each products}}
-        <tr>
-            <td>{{this.name}}</td>
-            <td class="right">x{{this.quantity}}</td>
-            <td class="right">{{this.total}}</td>
-        </tr>
+    <tr>
+      <td>{{name}}</td>
+      <td class="right">x{{quantity}}</td>
+      <td class="right">{{total}}</td>
+    </tr>
 
-        {{#if this.adicionales}}
-        <tr>
-            <td colspan="3"><strong>Adicionales:</strong></td>
-        </tr>
-        <tr>
-            <td colspan="3">{{this.adicionales}}</td>
-        </tr>
-        {{/if}}
+    {{#if adicionales}}
+    <tr>
+      <td colspan="3" class="adicional">
+        <strong>Adicionales:</strong><br/>
+        {{adicionales}}
+      </td>
+    </tr>
+    {{/if}}
 
-        <tr>
-            <td colspan="3"><div class="dotted"></div></td>
-        </tr>
     {{/each}}
-
-    </tbody>
+  </tbody>
 </table>
 
-{{#if order.comments}}
-<p><strong>Comentarios:</strong> {{order.comments}}</p>
+<div class="line"></div>
+
+<table class="totals">
+  <tr>
+    <td>Subtotal:</td>
+    <td class="right">{{subtotal}}</td>
+  </tr>
+  <tr>
+    <td>Envío:</td>
+    <td class="right">{{shipping}}</td>
+  </tr>
+  <tr class="total-final">
+    <td>Total:</td>
+    <td class="right">{{total}}</td>
+  </tr>
+</table>
+
+{{#if comment}}
+<div class="comment">
+  <strong>Comentarios:</strong><br/>
+  {{comment}}
+</div>
 {{/if}}
 
-<div class="dotted"></div>
-
-<table>
-    <tr>
-        <td colspan="2" class="right"><strong>Subtotal:</strong></td>
-        <td class="right">{{subtotal}}</td>
-    </tr>
-    <tr>
-        <td colspan="2" class="right"><
+</body>
+</html>
