@@ -1,4 +1,4 @@
-const fs = require('fs'); 
+const fs = require('fs');
 const path = require('path');
 const Handlebars = require('handlebars');
 const { chromium } = require('playwright');
@@ -8,7 +8,12 @@ const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(express.json({ limit: '10mb' }));
+/* ==============================
+   LECTURA UNIVERSAL DEL BODY
+   (Acepta texto o JSON)
+================================= */
+
+app.use(express.text({ type: '*/*', limit: '10mb' }));
 
 /* ==============================
    CONFIGURACIÓN R2
@@ -25,10 +30,6 @@ const r2 = new S3Client({
 
 /* ==============================
    FUNCIÓN UNIVERSAL DE EXTRACCIÓN
-   Compatible con:
-   - Apphive (m / n / s / u)
-   - Apphive wrapper return.args
-   - Postman directo
 ================================= */
 
 function extractData(body) {
@@ -36,18 +37,17 @@ function extractData(body) {
 
   console.log("BODY CRUDO RECIBIDO:", JSON.stringify(body, null, 2));
 
-  // Caso Apphive: body.s viene como string JSON
+  // Caso Apphive clásico (m / n / s / u)
   if (body.s) {
     try {
-      const parsed = JSON.parse(body.s);
-      return parsed;
+      return JSON.parse(body.s);
     } catch (error) {
       console.error("Error parseando body.s:", error);
       return null;
     }
   }
 
-  // Caso wrapper return.args
+  // Caso Apphive wrapper return.args
   if (body.return && body.return.args) {
     return body.return.args;
   }
@@ -68,7 +68,21 @@ app.post('/generar-pdf', async (req, res) => {
   let browser;
 
   try {
-    const data = extractData(req.body);
+
+    // 🔥 Parse manual del body
+    let rawBody = req.body;
+    let parsedBody;
+
+    try {
+      parsedBody = typeof rawBody === 'string'
+        ? JSON.parse(rawBody)
+        : rawBody;
+    } catch (error) {
+      console.error("Error parseando body principal:", error);
+      return res.status(400).json({ error: "Body inválido" });
+    }
+
+    const data = extractData(parsedBody);
 
     if (!data) {
       return res.status(400).json({
@@ -78,11 +92,18 @@ app.post('/generar-pdf', async (req, res) => {
 
     console.log('DATA PROCESADA:', JSON.stringify(data, null, 2));
 
+    /* ==============================
+       GENERAR HTML
+    ================================= */
+
     const templatePath = path.join(__dirname, 'views', 'ticket.hbs');
     const templateSource = fs.readFileSync(templatePath, 'utf8');
-
     const template = Handlebars.compile(templateSource);
     const html = template(data);
+
+    /* ==============================
+       GENERAR PDF
+    ================================= */
 
     browser = await chromium.launch({
       headless: true,
@@ -120,18 +141,20 @@ app.post('/generar-pdf', async (req, res) => {
 
     const publicUrl = `${process.env.R2_PUBLIC_URL}/${fileName}`;
 
-    res.json({
+    return res.json({
       success: true,
       url: publicUrl
     });
 
   } catch (error) {
     console.error('Error generando PDF:', error);
-    res.status(500).json({
+    return res.status(500).json({
       error: 'Error generando PDF'
     });
   } finally {
-    if (browser) await browser.close();
+    if (browser) {
+      await browser.close();
+    }
   }
 });
 
