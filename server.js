@@ -24,15 +24,35 @@ const r2 = new S3Client({
 });
 
 /* ==============================
-   FUNCION UNIVERSAL DE EXTRACCIÓN
+   FUNCIÓN UNIVERSAL DE EXTRACCIÓN
+   Compatible con:
+   - Apphive (m / n / s / u)
+   - Apphive wrapper return.args
+   - Postman directo
 ================================= */
 
 function extractData(body) {
   if (!body) return null;
 
-  if (body.s) return body.s;
-  if (body.return && body.return.args) return body.return.args;
+  console.log("BODY CRUDO RECIBIDO:", JSON.stringify(body, null, 2));
 
+  // Caso Apphive: body.s viene como string JSON
+  if (body.s) {
+    try {
+      const parsed = JSON.parse(body.s);
+      return parsed;
+    } catch (error) {
+      console.error("Error parseando body.s:", error);
+      return null;
+    }
+  }
+
+  // Caso wrapper return.args
+  if (body.return && body.return.args) {
+    return body.return.args;
+  }
+
+  // Caso Postman directo
   return body;
 }
 
@@ -56,7 +76,7 @@ app.post('/generar-pdf', async (req, res) => {
       });
     }
 
-    console.log('DATA RECIBIDA:', JSON.stringify(data, null, 2));
+    console.log('DATA PROCESADA:', JSON.stringify(data, null, 2));
 
     const templatePath = path.join(__dirname, 'views', 'ticket.hbs');
     const templateSource = fs.readFileSync(templatePath, 'utf8');
