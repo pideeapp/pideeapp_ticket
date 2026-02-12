@@ -3,6 +3,7 @@ const path = require('path');
 const Handlebars = require('handlebars');
 const { chromium } = require('playwright');
 const express = require('express');
+const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -10,18 +11,28 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json({ limit: '10mb' }));
 
 /* ==============================
+   CONFIGURACIÓN R2
+================================= */
+
+const r2 = new S3Client({
+  region: 'auto',
+  endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+  credentials: {
+    accessKeyId: process.env.R2_ACCESS_KEY_ID,
+    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
+  },
+});
+
+/* ==============================
    FUNCION UNIVERSAL DE EXTRACCIÓN
 ================================= */
+
 function extractData(body) {
   if (!body) return null;
 
-  // AppHive formato actual
   if (body.s) return body.s;
-
-  // Formato antiguo pruebas
   if (body.return && body.return.args) return body.return.args;
 
-  // Postman / Web / pruebas directas
   return body;
 }
 
@@ -72,12 +83,27 @@ app.post('/generar-pdf', async (req, res) => {
       }
     });
 
-    res.set({
-      'Content-Type': 'application/pdf',
-      'Content-Length': pdfBuffer.length
-    });
+    /* ==============================
+       SUBIR A R2
+    ================================= */
 
-    res.send(pdfBuffer);
+    const fileName = `ticket-${Date.now()}.pdf`;
+
+    await r2.send(
+      new PutObjectCommand({
+        Bucket: process.env.R2_BUCKET_NAME,
+        Key: fileName,
+        Body: pdfBuffer,
+        ContentType: 'application/pdf',
+      })
+    );
+
+    const publicUrl = `${process.env.R2_PUBLIC_URL}/${fileName}`;
+
+    res.json({
+      success: true,
+      url: publicUrl
+    });
 
   } catch (error) {
     console.error('Error generando PDF:', error);
