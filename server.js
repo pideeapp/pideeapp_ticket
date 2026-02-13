@@ -3,10 +3,24 @@ const path = require('path');
 const Handlebars = require('handlebars');
 const { chromium } = require('playwright');
 const express = require('express');
+const cors = require('cors'); // ✅ NUEVO
 const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+/* ==============================
+   CORS CONFIGURACIÓN (Apphive Fix)
+================================= */
+
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type']
+}));
+
+// Manejo explícito preflight
+app.options('*', cors());
 
 app.use(express.json({ limit: '10mb' }));
 
