@@ -3,10 +3,22 @@ const path = require('path');
 const Handlebars = require('handlebars');
 const { chromium } = require('playwright');
 const express = require('express');
+const cors = require('cors'); // ✅ NUEVO
 const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+/* ==============================
+   CORS
+================================= */
+app.use(cors({
+  origin: '*',
+  methods: ['GET','POST','OPTIONS'],
+  allowedHeaders: ['Content-Type']
+}));
+
+app.options('*', cors());
 
 /* ==============================
    LECTURA UNIVERSAL DEL BODY
