@@ -10,15 +10,16 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 /* ==============================
-   CORS CONFIG
+   CORS CONFIGURADO CORRECTAMENTE
 ================================= */
 app.use(cors({
   origin: '*',
-  methods: ['GET','POST','OPTIONS'],
+  methods: ['GET', 'POST', 'OPTIONS'],
   allowedHeaders: ['Content-Type']
 }));
 
-app.options('*', cors());
+// IMPORTANTE: Express moderno NO acepta "*"
+app.options('/*', cors());
 
 /* ==============================
    LECTURA UNIVERSAL DEL BODY
@@ -45,8 +46,10 @@ function extractData(body) {
 
   console.log("BODY RECIBIDO CRUDO:", JSON.stringify(body, null, 2));
 
+  // Caso Apphive objeto
   if (body.s && typeof body.s === 'object') return body.s;
 
+  // Caso Apphive string
   if (body.s && typeof body.s === 'string') {
     try {
       return JSON.parse(body.s);
@@ -56,8 +59,10 @@ function extractData(body) {
     }
   }
 
+  // Caso wrapper return.args
   if (body.return && body.return.args) return body.return.args;
 
+  // JSON directo
   if (typeof body === 'object') return body;
 
   return null;
@@ -66,7 +71,6 @@ function extractData(body) {
 /* ==============================
    RUTAS
 ================================= */
-
 app.get('/', (req, res) => {
   res.send('Servidor PIDEE funcionando correctamente 🚀');
 });
@@ -77,6 +81,7 @@ app.post('/generar-pdf', async (req, res) => {
 
   try {
 
+    // Parse inicial
     let parsedBody;
 
     try {
@@ -90,24 +95,32 @@ app.post('/generar-pdf', async (req, res) => {
 
     const data = extractData(parsedBody);
 
-    if (!data)
-      return res.status(400).json({ error: "No se pudo interpretar el body recibido" });
+    if (!data) {
+      return res.status(400).json({
+        error: "No se pudo interpretar el body recibido"
+      });
+    }
 
-    console.log('DATA PROCESADA:', JSON.stringify(data, null, 2));
+    console.log("DATA PROCESADA:", JSON.stringify(data, null, 2));
 
-    /* ===== HTML ===== */
+    /* ==============================
+       GENERAR HTML
+    ================================= */
     const templatePath = path.join(__dirname, 'views', 'ticket.hbs');
     const templateSource = fs.readFileSync(templatePath, 'utf8');
     const template = Handlebars.compile(templateSource);
     const html = template(data);
 
-    /* ===== PDF ===== */
+    /* ==============================
+       GENERAR PDF
+    ================================= */
     browser = await chromium.launch({
       headless: true,
-      args: ['--no-sandbox','--disable-setuid-sandbox']
+      args: ['--no-sandbox', '--disable-setuid-sandbox']
     });
 
     const page = await browser.newPage();
+
     await page.setContent(html, { waitUntil: 'networkidle' });
 
     const pdfBuffer = await page.pdf({
@@ -121,14 +134,16 @@ app.post('/generar-pdf', async (req, res) => {
       }
     });
 
-    /* ===== SUBIR A R2 ===== */
+    /* ==============================
+       SUBIR A R2
+    ================================= */
     const fileName = `ticket-${Date.now()}.pdf`;
 
     await r2.send(new PutObjectCommand({
       Bucket: process.env.R2_BUCKET_NAME,
       Key: fileName,
       Body: pdfBuffer,
-      ContentType: 'application/pdf'
+      ContentType: 'application/pdf',
     }));
 
     const publicUrl = `${process.env.R2_PUBLIC_URL}/${fileName}`;
@@ -140,18 +155,24 @@ app.post('/generar-pdf', async (req, res) => {
 
   } catch (error) {
 
-    console.error('Error generando PDF:', error);
+    console.error("Error generando PDF:", error);
 
     return res.status(500).json({
-      error: 'Error generando PDF'
+      error: "Error generando PDF"
     });
 
   } finally {
-    if (browser) await browser.close();
-  }
 
+    if (browser) {
+      await browser.close();
+    }
+
+  }
 });
 
+/* ==============================
+   START SERVER
+================================= */
 app.listen(PORT, () => {
   console.log(`Servidor corriendo en puerto ${PORT}`);
 });
