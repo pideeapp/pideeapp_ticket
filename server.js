@@ -1,178 +1,88 @@
-const fs = require('fs');
-const path = require('path');
-const Handlebars = require('handlebars');
-const { chromium } = require('playwright');
-const express = require('express');
-const cors = require('cors');
-const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
+const express = require("express");
+const cors = require("cors");
+const PDFDocument = require("pdfkit");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-/* ==============================
-   CORS CONFIGURADO CORRECTAMENTE
-================================= */
-app.use(cors({
-  origin: '*',
-  methods: ['GET', 'POST', 'OPTIONS'],
-  allowedHeaders: ['Content-Type']
-}));
+/* ======================
+   MIDDLEWARE
+====================== */
 
-// IMPORTANTE: Express moderno NO acepta "*"
-app.options('/*', cors());
+app.use(cors()); // Maneja CORS automáticamente
+app.use(express.json());
 
-/* ==============================
-   LECTURA UNIVERSAL DEL BODY
-================================= */
-app.use(express.text({ type: '*/*', limit: '10mb' }));
+/* ======================
+   RUTA DE PRUEBA
+====================== */
 
-/* ==============================
-   CONFIGURACIÓN R2
-================================= */
-const r2 = new S3Client({
-  region: 'auto',
-  endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
-  credentials: {
-    accessKeyId: process.env.R2_ACCESS_KEY_ID,
-    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
-  },
+app.get("/", (req, res) => {
+  res.send("Servidor PIDEE Ticket activo 🚀");
 });
 
-/* ==============================
-   FUNCIÓN UNIVERSAL DE EXTRACCIÓN
-================================= */
-function extractData(body) {
-  if (!body) return null;
+/* ======================
+   GENERAR PDF
+====================== */
 
-  console.log("BODY RECIBIDO CRUDO:", JSON.stringify(body, null, 2));
-
-  // Caso Apphive objeto
-  if (body.s && typeof body.s === 'object') return body.s;
-
-  // Caso Apphive string
-  if (body.s && typeof body.s === 'string') {
-    try {
-      return JSON.parse(body.s);
-    } catch (err) {
-      console.error("Error parseando body.s:", err);
-      return null;
-    }
-  }
-
-  // Caso wrapper return.args
-  if (body.return && body.return.args) return body.return.args;
-
-  // JSON directo
-  if (typeof body === 'object') return body;
-
-  return null;
-}
-
-/* ==============================
-   RUTAS
-================================= */
-app.get('/', (req, res) => {
-  res.send('Servidor PIDEE funcionando correctamente 🚀');
-});
-
-app.post('/generar-pdf', async (req, res) => {
-
-  let browser;
-
+app.post("/generar-pdf", async (req, res) => {
   try {
+    const pedido = req.body;
 
-    // Parse inicial
-    let parsedBody;
+    const doc = new PDFDocument({
+      size: [226, 600],
+      margin: 10
+    });
 
-    try {
-      parsedBody = typeof req.body === 'string'
-        ? JSON.parse(req.body)
-        : req.body;
-    } catch (err) {
-      console.error("Error parseando body principal:", err);
-      return res.status(400).json({ error: "Body inválido" });
-    }
+    let buffers = [];
 
-    const data = extractData(parsedBody);
+    doc.on("data", buffers.push.bind(buffers));
 
-    if (!data) {
-      return res.status(400).json({
-        error: "No se pudo interpretar el body recibido"
+    doc.on("end", () => {
+      const pdfData = Buffer.concat(buffers);
+
+      res.writeHead(200, {
+        "Content-Type": "application/pdf",
+        "Content-Length": pdfData.length
+      });
+
+      res.end(pdfData);
+    });
+
+    /* ======================
+       CONTENIDO DEL TICKET
+    ======================= */
+
+    doc.fontSize(12).text("PIDEE.APP", { align: "center" });
+    doc.moveDown();
+
+    doc.fontSize(9).text(`Pedido: ${pedido.id || ""}`);
+    doc.text(`Cliente: ${pedido.cliente || ""}`);
+    doc.text(`Fecha: ${pedido.fecha || ""}`);
+    doc.moveDown();
+
+    if (pedido.productos && Array.isArray(pedido.productos)) {
+      pedido.productos.forEach((item) => {
+        doc.text(`${item.cantidad} x ${item.nombre}`);
       });
     }
 
-    console.log("DATA PROCESADA:", JSON.stringify(data, null, 2));
+    doc.moveDown();
+    doc.text(`Total: $${pedido.total || 0}`);
 
-    /* ==============================
-       GENERAR HTML
-    ================================= */
-    const templatePath = path.join(__dirname, 'views', 'ticket.hbs');
-    const templateSource = fs.readFileSync(templatePath, 'utf8');
-    const template = Handlebars.compile(templateSource);
-    const html = template(data);
-
-    /* ==============================
-       GENERAR PDF
-    ================================= */
-    browser = await chromium.launch({
-      headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox']
-    });
-
-    const page = await browser.newPage();
-
-    await page.setContent(html, { waitUntil: 'networkidle' });
-
-    const pdfBuffer = await page.pdf({
-      width: '80mm',
-      printBackground: true,
-      margin: {
-        top: '5mm',
-        bottom: '5mm',
-        left: '5mm',
-        right: '5mm'
-      }
-    });
-
-    /* ==============================
-       SUBIR A R2
-    ================================= */
-    const fileName = `ticket-${Date.now()}.pdf`;
-
-    await r2.send(new PutObjectCommand({
-      Bucket: process.env.R2_BUCKET_NAME,
-      Key: fileName,
-      Body: pdfBuffer,
-      ContentType: 'application/pdf',
-    }));
-
-    const publicUrl = `${process.env.R2_PUBLIC_URL}/${fileName}`;
-
-    return res.json({
-      success: true,
-      url: publicUrl
-    });
+    doc.end();
 
   } catch (error) {
-
-    console.error("Error generando PDF:", error);
-
-    return res.status(500).json({
+    console.error(error);
+    res.status(500).json({
       error: "Error generando PDF"
     });
-
-  } finally {
-
-    if (browser) {
-      await browser.close();
-    }
-
   }
 });
 
-/* ==============================
+/* ======================
    START SERVER
-================================= */
+====================== */
+
 app.listen(PORT, () => {
   console.log(`Servidor corriendo en puerto ${PORT}`);
 });
