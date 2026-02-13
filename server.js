@@ -18,7 +18,7 @@ app.use(cors({
   allowedHeaders: ['Content-Type']
 }));
 
-app.options('*', cors());
+app.options('/generar-pdf', cors());
 
 /* ==============================
    LECTURA UNIVERSAL DEL BODY
