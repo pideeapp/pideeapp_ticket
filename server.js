@@ -10,7 +10,6 @@ const PORT = process.env.PORT || 3000;
 
 /* ==============================
    LECTURA UNIVERSAL DEL BODY
-   (Acepta texto o JSON)
 ================================= */
 
 app.use(express.text({ type: '*/*', limit: '10mb' }));
@@ -35,25 +34,34 @@ const r2 = new S3Client({
 function extractData(body) {
   if (!body) return null;
 
-  console.log("BODY CRUDO RECIBIDO:", JSON.stringify(body, null, 2));
+  console.log("BODY RECIBIDO:", JSON.stringify(body, null, 2));
 
-  // Caso Apphive clásico (m / n / s / u)
-  if (body.s) {
+  // Caso Apphive (estructura con s como objeto)
+  if (body.s && typeof body.s === "object") {
+    return body.s;
+  }
+
+  // Caso Apphive (s como string)
+  if (body.s && typeof body.s === "string") {
     try {
       return JSON.parse(body.s);
     } catch (error) {
-      console.error("Error parseando body.s:", error);
+      console.error("Error parseando body.s string:", error);
       return null;
     }
   }
 
-  // Caso Apphive wrapper return.args
+  // Caso wrapper return.args
   if (body.return && body.return.args) {
     return body.return.args;
   }
 
-  // Caso Postman directo
-  return body;
+  // Caso JSON directo (Postman)
+  if (typeof body === "object") {
+    return body;
+  }
+
+  return null;
 }
 
 /* ==============================
@@ -69,14 +77,13 @@ app.post('/generar-pdf', async (req, res) => {
 
   try {
 
-    // 🔥 Parse manual del body
-    let rawBody = req.body;
+    // Parse inicial del body (puede venir como string)
     let parsedBody;
 
     try {
-      parsedBody = typeof rawBody === 'string'
-        ? JSON.parse(rawBody)
-        : rawBody;
+      parsedBody = typeof req.body === 'string'
+        ? JSON.parse(req.body)
+        : req.body;
     } catch (error) {
       console.error("Error parseando body principal:", error);
       return res.status(400).json({ error: "Body inválido" });
