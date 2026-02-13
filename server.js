@@ -20,7 +20,6 @@ app.use(cors({
 }));
 
 // Manejo explícito preflight
-app.options('*', cors());
 
 app.use(express.json({ limit: '10mb' }));
 
