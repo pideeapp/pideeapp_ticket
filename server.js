@@ -9,6 +9,12 @@ const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+const cors = require('cors');
+
+app.use(cors());
+app.options('*', cors());
+
+
 /* ==============================
    CORS
 ================================= */
